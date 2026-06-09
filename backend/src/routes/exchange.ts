@@ -105,7 +105,7 @@ router.get('/orders', authMiddleware, (req: Request, res: Response) => {
   res.json({ success: true, data: orders });
 });
 
-router.put('/orders/:id/deliver', authMiddleware, requireRole('admin'), (req: Request, res: Response) => {
+router.put('/orders/:id/ship', authMiddleware, requireRole('admin'), (req: Request, res: Response) => {
   const id = parseInt(req.params.id);
   const order = db.prepare('SELECT * FROM exchange_orders WHERE id = ?').get(id) as any;
   if (!order) {
@@ -118,10 +118,29 @@ router.put('/orders/:id/deliver', authMiddleware, requireRole('admin'), (req: Re
   }
 
   db.prepare(`
-    UPDATE exchange_orders SET status = 'delivered', deliveredAt = datetime('now', 'localtime') WHERE id = ?
+    UPDATE exchange_orders SET status = 'shipped', shippedAt = datetime('now', 'localtime') WHERE id = ?
   `).run(id);
 
   res.json({ success: true, message: '发货成功' });
+});
+
+router.put('/orders/:id/deliver', authMiddleware, requireRole('admin'), (req: Request, res: Response) => {
+  const id = parseInt(req.params.id);
+  const order = db.prepare('SELECT * FROM exchange_orders WHERE id = ?').get(id) as any;
+  if (!order) {
+    res.status(404).json({ success: false, message: '订单不存在' });
+    return;
+  }
+  if (order.status !== 'shipped') {
+    res.status(400).json({ success: false, message: '只能对已发货订单确认收货' });
+    return;
+  }
+
+  db.prepare(`
+    UPDATE exchange_orders SET status = 'delivered', deliveredAt = datetime('now', 'localtime') WHERE id = ?
+  `).run(id);
+
+  res.json({ success: true, message: '已确认收货' });
 });
 
 router.put('/orders/:id/cancel', authMiddleware, requireRole('admin'), (req: Request, res: Response) => {
@@ -131,7 +150,7 @@ router.put('/orders/:id/cancel', authMiddleware, requireRole('admin'), (req: Req
     res.status(404).json({ success: false, message: '订单不存在' });
     return;
   }
-  if (order.status !== 'pending') {
+  if (order.status !== 'pending' && order.status !== 'shipped') {
     res.status(400).json({ success: false, message: '该订单无法取消' });
     return;
   }

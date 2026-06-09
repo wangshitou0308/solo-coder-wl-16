@@ -6,7 +6,7 @@ const router = Router();
 
 router.get('/', authMiddleware, requireRole('admin'), (req: Request, res: Response) => {
   const { role } = req.query;
-  let query = 'SELECT id, username, realName, phone, role, address, createdAt FROM users';
+  let query = 'SELECT id, username, realName, phone, role, address, community, createdAt FROM users';
   const params: any[] = [];
   if (role && role !== 'all') {
     query += ' WHERE role = ?';
@@ -31,7 +31,7 @@ router.get('/collectors', authMiddleware, (_req: Request, res: Response) => {
 });
 
 router.post('/', authMiddleware, requireRole('admin'), (req: Request, res: Response) => {
-  const { username, password, realName, phone, role, address } = req.body;
+  const { username, password, realName, phone, role, address, community } = req.body;
   if (!username || !password || !realName || !phone || !role) {
     res.status(400).json({ success: false, message: '请填写完整信息' });
     return;
@@ -42,9 +42,9 @@ router.post('/', authMiddleware, requireRole('admin'), (req: Request, res: Respo
     return;
   }
   const result = db.prepare(`
-    INSERT INTO users (username, password, realName, phone, role, address)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `).run(username, password, realName, phone, role, address || null);
+    INSERT INTO users (username, password, realName, phone, role, address, community)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(username, password, realName, phone, role, address || null, community || null);
 
   if (role === 'resident') {
     const currentYear = new Date().getFullYear();
@@ -56,20 +56,30 @@ router.post('/', authMiddleware, requireRole('admin'), (req: Request, res: Respo
 
 router.put('/:id', authMiddleware, requireRole('admin'), (req: Request, res: Response) => {
   const id = parseInt(req.params.id);
-  const { realName, phone, role, address } = req.body;
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+  const { realName, phone, role, address, community, password } = req.body;
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id) as any;
   if (!user) {
     res.status(404).json({ success: false, message: '用户不存在' });
     return;
   }
-  db.prepare(`
-    UPDATE users
-    SET realName = COALESCE(?, realName),
-        phone = COALESCE(?, phone),
-        role = COALESCE(?, role),
-        address = COALESCE(?, address)
-    WHERE id = ?
-  `).run(realName, phone, role, address, id);
+
+  const fields: string[] = [];
+  const params: any[] = [];
+
+  if (realName !== undefined) { fields.push('realName = ?'); params.push(realName); }
+  if (phone !== undefined) { fields.push('phone = ?'); params.push(phone); }
+  if (role !== undefined) { fields.push('role = ?'); params.push(role); }
+  if (address !== undefined) { fields.push('address = ?'); params.push(address); }
+  if (community !== undefined) { fields.push('community = ?'); params.push(community); }
+  if (password !== undefined && password !== '') { fields.push('password = ?'); params.push(password); }
+
+  if (fields.length === 0) {
+    res.json({ success: true, message: '没有需要更新的字段' });
+    return;
+  }
+  params.push(id);
+
+  db.prepare(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`).run(...params);
   res.json({ success: true, message: '更新成功' });
 });
 

@@ -18,6 +18,7 @@ export interface UserInfo {
   phone: string;
   role: 'resident' | 'collector' | 'admin';
   address?: string;
+  community?: string;
   createdAt?: string;
 }
 
@@ -115,12 +116,19 @@ export interface ExchangeOrder {
   productName: string;
   productImage: string;
   productCategory: string;
+  productIcon?: string;
   quantity: number;
   totalPoints: number;
-  status: 'pending' | 'delivered' | 'cancelled';
+  status: 'pending' | 'shipped' | 'delivered' | 'cancelled';
+  address?: string;
+  recipientPhone?: string;
   createdAt: string;
+  shippedAt?: string;
   deliveredAt?: string;
   userName?: string;
+  residentName?: string;
+  residentUsername?: string;
+  residentPhone?: string;
   phone?: string;
 }
 
@@ -150,6 +158,7 @@ export const appointmentApi = {
     items: { categoryId: number; estimatedQuantity: number }[];
   }): Promise<ApiResponse<{ id: number; estimatedPoints: number }>> =>
     request.post('/api/appointments', data),
+  list: (): Promise<ApiResponse<Appointment[]>> => request.get('/api/appointments/my'),
   myList: (): Promise<ApiResponse<Appointment[]>> => request.get('/api/appointments/my'),
   get: (id: number): Promise<ApiResponse<Appointment>> => request.get(`/api/appointments/${id}`),
   accept: (id: number): Promise<ApiResponse> => request.put(`/api/appointments/${id}/accept`),
@@ -171,6 +180,8 @@ export const exchangeApi = {
   createOrder: (productId: number, quantity = 1): Promise<ApiResponse<{ id: number; totalPoints: number }>> =>
     request.post('/api/exchange/orders', { productId, quantity }),
   listOrders: (): Promise<ApiResponse<ExchangeOrder[]>> => request.get('/api/exchange/orders'),
+  adminList: (): Promise<ApiResponse<ExchangeOrder[]>> => request.get('/api/exchange/orders'),
+  ship: (id: number): Promise<ApiResponse> => request.put(`/api/exchange/orders/${id}/ship`),
   deliver: (id: number): Promise<ApiResponse> => request.put(`/api/exchange/orders/${id}/deliver`),
   cancelOrder: (id: number): Promise<ApiResponse> => request.put(`/api/exchange/orders/${id}/cancel`),
 };
@@ -181,13 +192,14 @@ export const statsApi = {
 };
 
 export const userApi = {
-  list: (role?: string): Promise<ApiResponse<UserInfo[]>> =>
+  list: (role?: string): Promise<ApiResponse<any[]>> =>
     request.get('/api/users', { params: role ? { role } : {} }),
   listCollectors: (): Promise<ApiResponse<any[]>> => request.get('/api/users/collectors'),
-  create: (data: Partial<UserInfo> & { password: string }): Promise<ApiResponse<{ id: number }>> =>
+  create: (data: Partial<any> & { password: string }): Promise<ApiResponse<{ id: number }>> =>
     request.post('/api/users', data),
-  update: (id: number, data: Partial<UserInfo>): Promise<ApiResponse> => request.put(`/api/users/${id}`, data),
+  update: (id: number, data: Partial<any>): Promise<ApiResponse> => request.put(`/api/users/${id}`, data),
   remove: (id: number): Promise<ApiResponse> => request.delete(`/api/users/${id}`),
+  del: (id: number): Promise<ApiResponse> => request.delete(`/api/users/${id}`),
 };
 
 export const uploadApi = {

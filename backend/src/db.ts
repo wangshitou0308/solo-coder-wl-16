@@ -51,6 +51,25 @@ class StatementWrapper {
 let dbHandle: SqlJsDatabase | null = null;
 let saveTimeout: NodeJS.Timeout | null = null;
 
+type TxFn<T = any> = (...args: any[]) => T;
+
+function transaction<T>(fn: TxFn<T>) {
+  return (...args: any[]): T => {
+    if (!dbHandle) throw new Error('数据库未初始化');
+    dbHandle!.exec('BEGIN;');
+    try {
+      const result = fn(...args) as T;
+      dbHandle!.exec('COMMIT;');
+      scheduleSave();
+      return result;
+    } catch (e) {
+      try { dbHandle!.exec('ROLLBACK;'); } catch {}
+      scheduleSave();
+      throw e;
+    }
+  };
+}
+
 const saveToDisk = () => {
   if (!dbHandle) return;
   try {
@@ -233,6 +252,7 @@ const db = {
   prepare,
   exec,
   pragma,
+  transaction,
 };
 
 export { db as default, dbReady, saveToDisk };
