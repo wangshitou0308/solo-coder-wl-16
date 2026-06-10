@@ -16,6 +16,9 @@ import AdminDataScreen from './pages/admin/DataScreen';
 import AdminAppointments from './pages/admin/Appointments';
 import AdminUsers from './pages/admin/Users';
 import AdminExchange from './pages/admin/Exchange';
+import AdminCategories from './pages/admin/Categories';
+import AdminProducts from './pages/admin/Products';
+import Profile from './pages/Profile';
 
 function App() {
   const { token, user } = useAuthStore();
@@ -49,9 +52,11 @@ function App() {
         <Route path="resident/home" element={<ResidentHome />} />
         <Route path="resident/appointments" element={<ResidentAppointments />} />
         <Route path="resident/appointments/new" element={<ResidentAppointmentForm />} />
+        <Route path="resident/appointments/:id/edit" element={<ResidentAppointmentForm />} />
         <Route path="resident/appointments/:id" element={<ResidentAppointmentDetail />} />
         <Route path="resident/points" element={<ResidentPoints />} />
         <Route path="resident/exchange" element={<ResidentExchange />} />
+        <Route path="profile" element={<Profile />} />
         <Route path="collector/tasks" element={<CollectorTasks />} />
         <Route path="collector/tasks/:id" element={<CollectorTaskDetail />} />
         <Route path="collector/stats" element={<CollectorStats />} />
@@ -60,6 +65,8 @@ function App() {
         <Route path="admin/appointments" element={<AdminAppointments />} />
         <Route path="admin/users" element={<AdminUsers />} />
         <Route path="admin/exchange" element={<AdminExchange />} />
+        <Route path="admin/categories" element={<AdminCategories />} />
+        <Route path="admin/products" element={<AdminProducts />} />
         <Route path="*" element={<Navigate to={getDefaultRoute()} replace />} />
       </Route>
     </Routes>

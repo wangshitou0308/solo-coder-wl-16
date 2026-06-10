@@ -13,14 +13,15 @@ import {
   Result,
 } from 'antd';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeftOutlined, StarOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, StarOutlined, EditOutlined } from '@ant-design/icons';
 import { Appointment, appointmentApi } from '../../api';
 
 const statusMap: Record<string, { color: string; label: string }> = {
   pending: { color: 'default', label: '待接单' },
+  assigned: { color: 'blue', label: '已分派' },
   accepted: { color: 'processing', label: '已接单' },
   completed: { color: 'success', label: '已完成' },
-  cancelled: { colour: 'error', label: '已取消' },
+  cancelled: { color: 'error', label: '已取消' },
 };
 
 export default function ResidentAppointmentDetail() {
@@ -99,8 +100,17 @@ export default function ResidentAppointmentDetail() {
           </Space>
         }
         extra={
-          data && (data.status === 'pending' || data.status === 'accepted') && (
-            <Button danger onClick={handleCancel}>取消预约</Button>
+          data && (
+            <Space>
+              {data.status === 'pending' && (
+                <Button icon={<EditOutlined />} onClick={() => navigate(`/resident/appointments/${data.id}/edit`)}>
+                  修改预约
+                </Button>
+              )}
+              {(data.status === 'pending' || data.status === 'assigned' || data.status === 'accepted') && (
+                <Button danger onClick={handleCancel}>取消预约</Button>
+              )}
+            </Space>
           )
         }
       >

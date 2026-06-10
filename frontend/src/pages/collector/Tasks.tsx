@@ -25,13 +25,15 @@ import { Appointment, appointmentApi } from '../../api';
 
 const statusColor: Record<string, string> = {
   pending: 'default',
+  assigned: 'blue',
   accepted: 'processing',
   completed: 'success',
   cancelled: 'error',
 };
 
 const statusLabel: Record<string, string> = {
-  pending: '待接单',
+  pending: '待分派',
+  assigned: '待接单',
   accepted: '待上门',
   completed: '已完成',
   cancelled: '已取消',
@@ -78,7 +80,7 @@ export default function CollectorTasks() {
 
   const filterData = (status: string) => {
     if (status === 'all') return data;
-    if (status === 'mine') return data.filter((d) => d.status === 'accepted' || d.status === 'completed');
+    if (status === 'mine') return data.filter((d) => d.status === 'assigned' || d.status === 'accepted' || d.status === 'completed');
     return data.filter((d) => d.status === status);
   };
 
@@ -190,7 +192,7 @@ export default function CollectorTasks() {
                   <Button size="small" icon={<EyeOutlined />} onClick={() => navigate(`/collector/tasks/${item.id}`)}>
                     详情
                   </Button>
-                  {item.status === 'pending' && (
+                  {item.status === 'assigned' && (
                     <Button
                       type="primary"
                       size="small"
@@ -198,7 +200,7 @@ export default function CollectorTasks() {
                       loading={accepting === item.id}
                       onClick={() => handleAccept(item.id)}
                     >
-                      接单
+                      确认接单
                     </Button>
                   )}
                   {item.status === 'accepted' && (
@@ -219,9 +221,9 @@ export default function CollectorTasks() {
       />
     );
 
-  const countPending = data.filter((d) => d.status === 'pending').length;
+  const countAssigned = data.filter((d) => d.status === 'assigned').length;
   const countAccepted = data.filter((d) => d.status === 'accepted').length;
-  const countMine = data.filter((d) => d.status === 'accepted' || d.status === 'completed').length;
+  const countMine = data.filter((d) => d.status === 'assigned' || d.status === 'accepted' || d.status === 'completed').length;
 
   return (
     <Card
@@ -238,14 +240,14 @@ export default function CollectorTasks() {
               label: <span>全部 <Tag style={{ marginLeft: 4 }}>{data.length}</Tag></span>,
             },
             {
-              key: 'pending',
+              key: 'assigned',
               label: (
                 <span>
-                  待抢单
-                  {countPending > 0 && (
+                  待接单
+                  {countAssigned > 0 && (
                     <Badge
-                      count={countPending}
-                      style={{ backgroundColor: '#ff4d4f', marginLeft: 6 }}
+                      count={countAssigned}
+                      style={{ backgroundColor: '#1890ff', marginLeft: 6 }}
                       offset={[-2, -2]}
                     >
                       <Tag style={{ marginLeft: 4, visibility: 'hidden' }}>0</Tag>
@@ -267,7 +269,7 @@ export default function CollectorTasks() {
             },
             {
               key: 'mine',
-              label: <span>我的订单 <Tag style={{ marginLeft: 4 }}>{countMine}</Tag></span>,
+              label: <span>我的任务 <Tag style={{ marginLeft: 4 }}>{countMine}</Tag></span>,
             },
           ]}
         />

@@ -5,9 +5,11 @@ export interface User {
   username: string;
   password: string;
   realName: string;
+  nickname?: string;
   phone: string;
   role: UserRole;
   address?: string;
+  community?: string;
   createdAt: string;
 }
 
@@ -20,7 +22,10 @@ export interface Category {
   tips: string;
   icon: string;
   sort: number;
+  enabled: number;
 }
+
+export type AppointmentStatus = 'pending' | 'assigned' | 'accepted' | 'completed' | 'cancelled';
 
 export interface Appointment {
   id: number;
@@ -29,13 +34,14 @@ export interface Appointment {
   address: string;
   expectedDate: string;
   expectedTimeSlot: string;
-  status: 'pending' | 'accepted' | 'completed' | 'cancelled';
+  status: AppointmentStatus;
   estimatedPoints: number;
   actualPoints?: number;
   rating?: number;
   comment?: string;
   photoUrl?: string;
   createdAt: string;
+  assignedAt?: string;
   acceptedAt?: string;
   completedAt?: string;
 }
@@ -79,6 +85,7 @@ export interface ExchangeProduct {
   image: string;
   category: string;
   sort: number;
+  enabled: number;
 }
 
 export interface ExchangeOrder {
@@ -87,12 +94,16 @@ export interface ExchangeOrder {
   productId: number;
   quantity: number;
   totalPoints: number;
-  status: 'pending' | 'delivered' | 'cancelled';
+  status: 'pending' | 'shipped' | 'delivered' | 'cancelled';
+  address?: string;
+  recipientPhone?: string;
   createdAt: string;
+  shippedAt?: string;
   deliveredAt?: string;
 }
 
 export interface TimeSlotCapacity {
+  id: number;
   date: string;
   timeSlot: string;
   maxCapacity: number;
@@ -104,4 +115,24 @@ export interface RatingStats {
   totalOrders: number;
   avgRating: number;
   fiveStarCount: number;
+}
+
+export type NotificationType = 
+  | 'appointment_assigned' 
+  | 'appointment_accepted' 
+  | 'appointment_completed' 
+  | 'points_earned'
+  | 'exchange_order_status'
+  | 'system';
+
+export interface Notification {
+  id: number;
+  userId: number;
+  type: NotificationType;
+  title: string;
+  content: string;
+  relatedId?: number;
+  relatedType?: string;
+  read: number;
+  createdAt: string;
 }

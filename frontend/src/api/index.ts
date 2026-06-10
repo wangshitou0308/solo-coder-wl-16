@@ -15,6 +15,7 @@ export interface UserInfo {
   id: number;
   username: string;
   realName: string;
+  nickname?: string;
   phone: string;
   role: 'resident' | 'collector' | 'admin';
   address?: string;
@@ -31,6 +32,7 @@ export interface Category {
   tips: string;
   icon: string;
   sort: number;
+  enabled: number;
 }
 
 export interface AppointmentItem {
@@ -45,6 +47,8 @@ export interface AppointmentItem {
   pointsPerUnit: number;
 }
 
+export type AppointmentStatus = 'pending' | 'assigned' | 'accepted' | 'completed' | 'cancelled';
+
 export interface Appointment {
   id: number;
   residentId: number;
@@ -52,16 +56,18 @@ export interface Appointment {
   address: string;
   expectedDate: string;
   expectedTimeSlot: string;
-  status: 'pending' | 'accepted' | 'completed' | 'cancelled';
+  status: AppointmentStatus;
   estimatedPoints: number;
   actualPoints?: number;
   rating?: number;
   comment?: string;
   photoUrl?: string;
   createdAt: string;
+  assignedAt?: string;
   acceptedAt?: string;
   completedAt?: string;
   residentName?: string;
+  residentNickname?: string;
   residentPhone?: string;
   collectorName?: string;
   collectorPhone?: string;
@@ -107,6 +113,7 @@ export interface ExchangeProduct {
   image: string;
   category: string;
   sort: number;
+  enabled: number;
 }
 
 export interface ExchangeOrder {
@@ -127,9 +134,36 @@ export interface ExchangeOrder {
   deliveredAt?: string;
   userName?: string;
   residentName?: string;
+  residentNickname?: string;
   residentUsername?: string;
   residentPhone?: string;
   phone?: string;
+}
+
+export type NotificationType = 
+  | 'appointment_assigned' 
+  | 'appointment_accepted' 
+  | 'appointment_completed' 
+  | 'points_earned'
+  | 'exchange_order_status'
+  | 'system';
+
+export interface Notification {
+  id: number;
+  userId: number;
+  type: NotificationType;
+  title: string;
+  content: string;
+  relatedId?: number;
+  relatedType?: string;
+  read: number;
+  createdAt: string;
+}
+
+export interface NotificationListData {
+  list: Notification[];
+  unreadCount: number;
+  total: number;
 }
 
 export const authApi = {
@@ -138,11 +172,28 @@ export const authApi = {
   getMe: (): Promise<ApiResponse<UserInfo>> => request.get('/api/auth/me'),
   updateProfile: (data: Partial<UserInfo>): Promise<ApiResponse<UserInfo>> =>
     request.put('/api/auth/profile', data),
+  getNotifications: (limit = 20, offset = 0): Promise<ApiResponse<NotificationListData>> =>
+    request.get('/api/auth/notifications', { params: { limit, offset } }),
+  getUnreadCount: (): Promise<ApiResponse<{ unreadCount: number }>> =>
+    request.get('/api/auth/notifications/unread'),
+  markNotificationRead: (id: number): Promise<ApiResponse> =>
+    request.put(`/api/auth/notifications/${id}/read`),
+  markAllNotificationsRead: (): Promise<ApiResponse> =>
+    request.put('/api/auth/notifications/read-all'),
 };
 
 export const categoryApi = {
   list: (): Promise<ApiResponse<Category[]>> => request.get('/api/categories'),
+  listAll: (): Promise<ApiResponse<Category[]>> => request.get('/api/categories/all'),
   get: (id: number): Promise<ApiResponse<Category>> => request.get(`/api/categories/${id}`),
+  create: (data: Omit<Category, 'id' | 'enabled'>): Promise<ApiResponse<{ id: number }>> =>
+    request.post('/api/categories', data),
+  update: (id: number, data: Partial<Category>): Promise<ApiResponse> =>
+    request.put(`/api/categories/${id}`, data),
+  toggle: (id: number): Promise<ApiResponse> =>
+    request.put(`/api/categories/${id}/toggle`),
+  remove: (id: number): Promise<ApiResponse> =>
+    request.delete(`/api/categories/${id}`),
 };
 
 export const capacityApi = {
@@ -158,9 +209,18 @@ export const appointmentApi = {
     items: { categoryId: number; estimatedQuantity: number }[];
   }): Promise<ApiResponse<{ id: number; estimatedPoints: number }>> =>
     request.post('/api/appointments', data),
+  update: (id: number, data: {
+    address?: string;
+    expectedDate?: string;
+    expectedTimeSlot?: string;
+    items?: { categoryId: number; estimatedQuantity: number }[];
+  }): Promise<ApiResponse<{ id: number; estimatedPoints: number }>> =>
+    request.put(`/api/appointments/${id}`, data),
   list: (): Promise<ApiResponse<Appointment[]>> => request.get('/api/appointments/my'),
   myList: (): Promise<ApiResponse<Appointment[]>> => request.get('/api/appointments/my'),
   get: (id: number): Promise<ApiResponse<Appointment>> => request.get(`/api/appointments/${id}`),
+  assign: (id: number, collectorId: number): Promise<ApiResponse> =>
+    request.put(`/api/appointments/${id}/assign`, { collectorId }),
   accept: (id: number): Promise<ApiResponse> => request.put(`/api/appointments/${id}/accept`),
   complete: (id: number, data: { actualItems: { id: number; actualQuantity: number }[]; photoUrl?: string }): Promise<ApiResponse<{ actualPoints: number }>> =>
     request.put(`/api/appointments/${id}/complete`, data),
@@ -177,6 +237,16 @@ export const pointsApi = {
 
 export const exchangeApi = {
   listProducts: (): Promise<ApiResponse<ExchangeProduct[]>> => request.get('/api/exchange/products'),
+  listAllProducts: (): Promise<ApiResponse<ExchangeProduct[]>> => request.get('/api/exchange/products/all'),
+  getProduct: (id: number): Promise<ApiResponse<ExchangeProduct>> => request.get(`/api/exchange/products/${id}`),
+  createProduct: (data: Omit<ExchangeProduct, 'id' | 'enabled'>): Promise<ApiResponse<{ id: number }>> =>
+    request.post('/api/exchange/products', data),
+  updateProduct: (id: number, data: Partial<ExchangeProduct>): Promise<ApiResponse> =>
+    request.put(`/api/exchange/products/${id}`, data),
+  toggleProduct: (id: number): Promise<ApiResponse> =>
+    request.put(`/api/exchange/products/${id}/toggle`),
+  deleteProduct: (id: number): Promise<ApiResponse> =>
+    request.delete(`/api/exchange/products/${id}`),
   createOrder: (productId: number, quantity = 1): Promise<ApiResponse<{ id: number; totalPoints: number }>> =>
     request.post('/api/exchange/orders', { productId, quantity }),
   listOrders: (): Promise<ApiResponse<ExchangeOrder[]>> => request.get('/api/exchange/orders'),

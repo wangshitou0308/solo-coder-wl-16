@@ -1,4 +1,5 @@
-import { Layout, Menu, Avatar, Dropdown, Button, Badge } from 'antd';
+import { useEffect, useState } from 'react';
+import { Layout, Menu, Avatar, Dropdown, Button, Badge, message } from 'antd';
 import {
   HomeOutlined,
   CalendarOutlined,
@@ -16,18 +17,40 @@ import {
   LogoutOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
+  BellOutlined,
+  AppstoreOutlined,
+  OrderedListOutlined as OrderedListOutlined2,
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { useState } from 'react';
+import { useState as useReactState } from 'react';
 import { useAuthStore } from '../store/authStore';
+import NotificationDrawer from '../components/NotificationDrawer';
+import { authApi } from '../api';
 
 const { Sider, Header, Content } = Layout;
 
 export default function MainLayout() {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useReactState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuthStore();
+  const [notificationOpen, setNotificationOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    loadUnreadCount();
+    const timer = setInterval(loadUnreadCount, 30000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const loadUnreadCount = async () => {
+    try {
+      const res = await authApi.getUnreadCount();
+      if (res.success) {
+        setUnreadCount(res.data?.unreadCount || 0);
+      }
+    } catch {}
+  };
 
   const residentItems = [
     { key: '/resident/home', icon: <HomeOutlined />, label: '首页' },
@@ -46,6 +69,8 @@ export default function MainLayout() {
     { key: '/admin/dashboard', icon: <DashboardOutlined />, label: '管理台' },
     { key: '/admin/data-screen', icon: <DesktopOutlined />, label: '数据大屏' },
     { key: '/admin/appointments', icon: <CalendarOutlined />, label: '预约管理' },
+    { key: '/admin/categories', icon: <OrderedListOutlined2 />, label: '品类管理' },
+    { key: '/admin/products', icon: <AppstoreOutlined />, label: '商品管理' },
     { key: '/admin/users', icon: <TeamOutlined />, label: '用户管理' },
     { key: '/admin/exchange', icon: <ShoppingOutlined />, label: '兑换管理' },
   ];
@@ -74,19 +99,17 @@ export default function MainLayout() {
     return path;
   };
 
+  const handleProfile = () => {
+    navigate('/profile');
+  };
+
   const userMenu = {
     items: [
       {
         key: 'profile',
         icon: <UserOutlined />,
         label: '个人信息',
-        onClick: () => messageCenter('个人信息功能'),
-      },
-      {
-        key: 'settings',
-        icon: <SettingOutlined />,
-        label: '设置',
-        onClick: () => messageCenter('设置功能'),
+        onClick: handleProfile,
       },
       { type: 'divider' },
       {
@@ -102,10 +125,6 @@ export default function MainLayout() {
         },
       },
     ],
-  };
-
-  const messageCenter = (text: string) => {
-    // 占位
   };
 
   const roleLabel: Record<string, string> = {
@@ -176,6 +195,14 @@ export default function MainLayout() {
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <Badge count={unreadCount} size="small" offset={[-2, 2]}>
+              <Button
+                type="text"
+                icon={<BellOutlined style={{ fontSize: 18 }} />}
+                onClick={() => setNotificationOpen(true)}
+                style={{ fontSize: 16, padding: '4px 12px' }}
+              />
+            </Badge>
             <Dropdown menu={userMenu} placement="bottomRight">
               <div
                 style={{
@@ -193,7 +220,7 @@ export default function MainLayout() {
                 <Avatar style={{ backgroundColor: '#52c41a', verticalAlign: 'middle' }}>
                   {user?.realName?.charAt(0) || 'U'}
                 </Avatar>
-                <span style={{ fontWeight: 500 }}>{user?.realName}</span>
+                <span style={{ fontWeight: 500 }}>{user?.nickname || user?.realName}</span>
               </div>
             </Dropdown>
           </div>
@@ -202,6 +229,13 @@ export default function MainLayout() {
           <Outlet />
         </Content>
       </Layout>
+      <NotificationDrawer
+        open={notificationOpen}
+        onClose={() => {
+          setNotificationOpen(false);
+          loadUnreadCount();
+        }}
+      />
     </Layout>
   );
 }

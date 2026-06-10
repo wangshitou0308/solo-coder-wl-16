@@ -24,8 +24,8 @@ function seed() {
   console.log('用户数据初始化完成');
 
   const insertCategory = db.prepare(`
-    INSERT INTO categories (name, unit, pointsPerUnit, description, tips, icon, sort)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO categories (name, unit, pointsPerUnit, description, tips, icon, sort, enabled)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 1)
   `);
 
   const categories = [
@@ -48,8 +48,8 @@ function seed() {
   console.log('回收品类数据初始化完成');
 
   const insertProduct = db.prepare(`
-    INSERT INTO exchange_products (name, description, pointsCost, stock, image, category, sort)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO exchange_products (name, description, pointsCost, stock, image, category, sort, enabled)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 1)
   `);
 
   const products = [

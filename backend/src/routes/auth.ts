@@ -58,9 +58,11 @@ router.post('/login', (req: Request, res: Response) => {
         id: user.id,
         username: user.username,
         realName: user.realName,
+        nickname: user.nickname,
         phone: user.phone,
         role: user.role,
         address: user.address,
+        community: user.community,
       },
     },
   });
@@ -68,7 +70,7 @@ router.post('/login', (req: Request, res: Response) => {
 
 router.get('/me', authMiddleware, (req: Request, res: Response) => {
   const userId = req.user!.userId;
-  const user = db.prepare('SELECT id, username, realName, phone, role, address, createdAt FROM users WHERE id = ?').get(userId);
+  const user = db.prepare('SELECT id, username, realName, nickname, phone, role, address, community, createdAt FROM users WHERE id = ?').get(userId);
   if (!user) {
     res.status(404).json({ success: false, message: '用户不存在' });
     return;
@@ -78,11 +80,85 @@ router.get('/me', authMiddleware, (req: Request, res: Response) => {
 
 router.put('/profile', authMiddleware, (req: Request, res: Response) => {
   const userId = req.user!.userId;
-  const { realName, phone, address } = req.body;
-  db.prepare('UPDATE users SET realName = COALESCE(?, realName), phone = COALESCE(?, phone), address = COALESCE(?, address) WHERE id = ?')
-    .run(realName, phone, address, userId);
-  const user = db.prepare('SELECT id, username, realName, phone, role, address, createdAt FROM users WHERE id = ?').get(userId);
+  const { realName, nickname, phone, address, community } = req.body;
+  
+  const fields: string[] = [];
+  const params: any[] = [];
+  
+  if (realName !== undefined) { fields.push('realName = ?'); params.push(realName); }
+  if (nickname !== undefined) { fields.push('nickname = ?'); params.push(nickname); }
+  if (phone !== undefined) { fields.push('phone = ?'); params.push(phone); }
+  if (address !== undefined) { fields.push('address = ?'); params.push(address); }
+  if (community !== undefined) { fields.push('community = ?'); params.push(community); }
+  
+  if (fields.length === 0) {
+    res.json({ success: true, message: '没有需要更新的字段' });
+    return;
+  }
+  
+  params.push(userId);
+  db.prepare(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`).run(...params);
+  
+  const user = db.prepare('SELECT id, username, realName, nickname, phone, role, address, community, createdAt FROM users WHERE id = ?').get(userId);
   res.json({ success: true, message: '信息更新成功', data: user });
+});
+
+router.get('/notifications', authMiddleware, (req: Request, res: Response) => {
+  const userId = req.user!.userId;
+  const { limit = 20, offset = 0 } = req.query;
+  
+  const notifications = db.prepare(`
+    SELECT * FROM notifications 
+    WHERE userId = ? 
+    ORDER BY createdAt DESC 
+    LIMIT ? OFFSET ?
+  `).all(userId, Number(limit), Number(offset));
+  
+  const unreadCount = db.prepare(`
+    SELECT COUNT(*) as count FROM notifications WHERE userId = ? AND read = 0
+  `).get(userId) as { count: number };
+  
+  res.json({ 
+    success: true, 
+    data: { 
+      list: notifications, 
+      unreadCount: unreadCount.count,
+      total: notifications.length
+    } 
+  });
+});
+
+router.get('/notifications/unread', authMiddleware, (req: Request, res: Response) => {
+  const userId = req.user!.userId;
+  const result = db.prepare(`
+    SELECT COUNT(*) as count FROM notifications WHERE userId = ? AND read = 0
+  `).get(userId) as { count: number };
+  
+  res.json({ success: true, data: { unreadCount: result.count } });
+});
+
+router.put('/notifications/:id/read', authMiddleware, (req: Request, res: Response) => {
+  const id = parseInt(req.params.id);
+  const userId = req.user!.userId;
+  
+  const notification = db.prepare('SELECT * FROM notifications WHERE id = ?').get(id);
+  if (!notification) {
+    res.status(404).json({ success: false, message: '通知不存在' });
+    return;
+  }
+  if (notification.userId !== userId) {
+    res.status(403).json({ success: false, message: '无权操作此通知' });
+    return;
+  }
+  
+  db.prepare('UPDATE notifications SET read = 1 WHERE id = ?').run(id);
+  res.json({ success: true, message: '已标记为已读' });
+});
+
+router.put('/notifications/read-all', authMiddleware, (req: Request, res: Response) => {
+  const userId = req.user!.userId;
+  db.prepare('UPDATE notifications SET read = 1 WHERE userId = ? AND read = 0').run(userId);
+  res.json({ success: true, message: '全部已读' });
 });
 
 export default router;

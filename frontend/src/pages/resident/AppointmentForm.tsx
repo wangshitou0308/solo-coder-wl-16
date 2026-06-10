@@ -14,15 +14,19 @@ import {
   Tag,
   Alert,
   message,
+  Spin,
+  Result,
 } from 'antd';
-import { InfoCircleOutlined } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
+import { InfoCircleOutlined, ArrowLeftOutlined } from '@ant-design/icons';
+import { useNavigate, useParams } from 'react-router-dom';
 import dayjs, { Dayjs } from 'dayjs';
-import { categoryApi, capacityApi, appointmentApi, Category, TimeSlot } from '../../api';
+import { categoryApi, capacityApi, appointmentApi, Category, TimeSlot, Appointment } from '../../api';
 import { useAuthStore } from '../../store/authStore';
 
 export default function AppointmentForm() {
   const navigate = useNavigate();
+  const { id } = useParams();
+  const isEdit = !!id;
   const user = useAuthStore((s) => s.user);
   const [step, setStep] = useState(0);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -33,13 +37,44 @@ export default function AppointmentForm() {
   const [form] = Form.useForm();
   const [submitting, setSubmitting] = useState(false);
   const [loadingSlots, setLoadingSlots] = useState(false);
+  const [loadingAppointment, setLoadingAppointment] = useState(false);
+  const [appointment, setAppointment] = useState<Appointment | null>(null);
 
   useEffect(() => {
-    categoryApi.list().then((r) => {
-      if (r.success) setCategories(r.data || []);
-    });
-    form.setFieldsValue({ address: user?.address });
-  }, [user, form]);
+    const init = async () => {
+      const catRes = await categoryApi.list();
+      if (catRes.success) setCategories(catRes.data || []);
+
+      if (isEdit) {
+        setLoadingAppointment(true);
+        try {
+          const res = await appointmentApi.get(parseInt(id || '0'));
+          if (res.success && res.data) {
+            const apt = res.data;
+            if (apt.status !== 'pending') {
+              message.error('只能修改待接单状态的预约');
+              navigate(-1);
+              return;
+            }
+            setAppointment(apt);
+            const selectedMap = new Map<number, number>();
+            apt.items.forEach((item) => {
+              selectedMap.set(item.categoryId, item.estimatedQuantity);
+            });
+            setSelected(selectedMap);
+            setDate(dayjs(apt.expectedDate));
+            setSelectedSlot(apt.expectedTimeSlot);
+            form.setFieldsValue({ address: apt.address });
+          }
+        } finally {
+          setLoadingAppointment(false);
+        }
+      } else {
+        form.setFieldsValue({ address: user?.address });
+      }
+    };
+    init();
+  }, [user, form, id, isEdit, navigate]);
 
   useEffect(() => {
     if (date) {
@@ -95,33 +130,66 @@ export default function AppointmentForm() {
         categoryId,
         estimatedQuantity,
       }));
-      const res = await appointmentApi.create({
-        address: values.address,
-        expectedDate: date!.format('YYYY-MM-DD'),
-        expectedTimeSlot: selectedSlot,
-        items,
-      });
-      if (res.success) {
-        message.success('预约提交成功！预计可获得积分已计算');
-        navigate(`/resident/appointments/${res.data?.id}`);
+
+      if (isEdit) {
+        const res = await appointmentApi.update(parseInt(id || '0'), {
+          address: values.address,
+          expectedDate: date!.format('YYYY-MM-DD'),
+          expectedTimeSlot: selectedSlot,
+          items,
+        });
+        if (res.success) {
+          message.success('预约修改成功！时段容量已自动调整');
+          navigate(`/resident/appointments/${id}`);
+        }
+      } else {
+        const res = await appointmentApi.create({
+          address: values.address,
+          expectedDate: date!.format('YYYY-MM-DD'),
+          expectedTimeSlot: selectedSlot,
+          items,
+        });
+        if (res.success) {
+          message.success('预约提交成功！预计可获得积分已计算');
+          navigate(`/resident/appointments/${res.data?.id}`);
+        }
       }
     } finally {
       setSubmitting(false);
     }
   };
 
+  if (loadingAppointment) {
+    return (
+      <div style={{ textAlign: 'center', padding: 60 }}>
+        <Spin size="large" />
+        <div style={{ marginTop: 12, color: '#999' }}>加载预约信息中...</div>
+      </div>
+    );
+  }
+
+  if (isEdit && !appointment) {
+    return <Result status="404" title="预约不存在" extra={<Button onClick={() => navigate(-1)}>返回</Button>} />;
+  }
+
   return (
     <div>
+      <div style={{ marginBottom: 16 }}>
+        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)}>
+          {isEdit ? '返回详情' : '返回列表'}
+        </Button>
+      </div>
+
       <Card style={{ borderRadius: 12, marginBottom: 20 }}>
         <Steps current={step} style={{ maxWidth: 600, margin: '0 auto' }}>
           <Steps.Step title="选择回收物" />
           <Steps.Step title="预约时间" />
-          <Steps.Step title="确认提交" />
+          <Steps.Step title={isEdit ? '确认修改' : '确认提交'} />
         </Steps>
       </Card>
 
       {step === 0 && (
-        <Card title="选择回收物品类" style={{ borderRadius: 12 }}>
+        <Card title={isEdit ? '修改回收物品类' : '选择回收物品类'} style={{ borderRadius: 12 }}>
           <div className="category-grid" style={{ marginBottom: 24 }}>
             {categories.map((cat) => (
               <div
@@ -197,14 +265,14 @@ export default function AppointmentForm() {
 
           <div style={{ textAlign: 'right' }}>
             <Button type="primary" size="large" onClick={() => setStep(1)} disabled={!canNext()}>
-              下一步：选择时间
+              下一步：{isEdit ? '修改时间' : '选择时间'}
             </Button>
           </div>
         </Card>
       )}
 
       {step === 1 && (
-        <Card title="选择预约时间" style={{ borderRadius: 12 }}>
+        <Card title={isEdit ? "修改预约时间" : "选择预约时间"} style={{ borderRadius: 12 }}>
           <Form layout="vertical" form={form}>
             <Row gutter={16}>
               <Col xs={24} md={12}>
@@ -271,14 +339,14 @@ export default function AppointmentForm() {
               上一步
             </Button>
             <Button type="primary" size="large" onClick={() => setStep(2)} disabled={!canNext()}>
-              下一步：确认信息
+              下一步：{isEdit ? '确认修改' : '确认信息'}
             </Button>
           </div>
         </Card>
       )}
 
       {step === 2 && (
-        <Card title="确认预约信息" style={{ borderRadius: 12 }}>
+        <Card title={isEdit ? "确认修改信息" : "确认预约信息"} style={{ borderRadius: 12 }}>
           <div style={{ maxWidth: 680, margin: '0 auto' }}>
             <div style={{ marginBottom: 20 }}>
               <div style={{ color: '#888', fontSize: 13, marginBottom: 6 }}>📍 上门地址</div>
@@ -336,7 +404,7 @@ export default function AppointmentForm() {
             <Alert
               type="info"
               showIcon
-              message="温馨提示：实际积分为回收员上门后按实际称重/数量结算，可能与预计略有差异"
+              message={isEdit ? "温馨提示：修改后时段容量将自动调整，旧时段释放、新时段占用" : "温馨提示：实际积分为回收员上门后按实际称重/数量结算，可能与预计略有差异"}
               style={{ marginBottom: 20 }}
             />
 
@@ -345,7 +413,7 @@ export default function AppointmentForm() {
                 上一步
               </Button>
               <Button type="primary" size="large" loading={submitting} onClick={handleSubmit}>
-                确认提交预约
+                {isEdit ? "确认修改预约" : "确认提交预约"}
               </Button>
             </div>
           </div>

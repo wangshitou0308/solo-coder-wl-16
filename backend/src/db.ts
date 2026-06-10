@@ -117,6 +117,7 @@ const initSchema = () => {
       username TEXT UNIQUE NOT NULL,
       password TEXT NOT NULL,
       realName TEXT NOT NULL,
+      nickname TEXT,
       phone TEXT NOT NULL DEFAULT '',
       role TEXT NOT NULL CHECK(role IN ('resident', 'collector', 'admin')),
       address TEXT,
@@ -132,7 +133,8 @@ const initSchema = () => {
       description TEXT NOT NULL,
       tips TEXT NOT NULL,
       icon TEXT NOT NULL,
-      sort INTEGER NOT NULL DEFAULT 0
+      sort INTEGER NOT NULL DEFAULT 0,
+      enabled INTEGER NOT NULL DEFAULT 1
     );
 
     CREATE TABLE IF NOT EXISTS appointments (
@@ -142,13 +144,14 @@ const initSchema = () => {
       address TEXT NOT NULL,
       expectedDate TEXT NOT NULL,
       expectedTimeSlot TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'accepted', 'completed', 'cancelled')),
+      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'assigned', 'accepted', 'completed', 'cancelled')),
       estimatedPoints INTEGER NOT NULL DEFAULT 0,
       actualPoints INTEGER,
       rating INTEGER CHECK(rating BETWEEN 1 AND 5),
       comment TEXT,
       photoUrl TEXT,
       createdAt TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+      assignedAt TEXT,
       acceptedAt TEXT,
       completedAt TEXT
     );
@@ -191,7 +194,8 @@ const initSchema = () => {
       stock INTEGER NOT NULL DEFAULT 0,
       image TEXT NOT NULL,
       category TEXT NOT NULL,
-      sort INTEGER NOT NULL DEFAULT 0
+      sort INTEGER NOT NULL DEFAULT 0,
+      enabled INTEGER NOT NULL DEFAULT 1
     );
 
     CREATE TABLE IF NOT EXISTS exchange_orders (
@@ -216,6 +220,20 @@ const initSchema = () => {
       currentCount INTEGER NOT NULL DEFAULT 0,
       UNIQUE(date, timeSlot)
     );
+
+    CREATE TABLE IF NOT EXISTS notifications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      userId INTEGER NOT NULL,
+      type TEXT NOT NULL,
+      title TEXT NOT NULL,
+      content TEXT NOT NULL,
+      relatedId INTEGER,
+      relatedType TEXT,
+      read INTEGER NOT NULL DEFAULT 0,
+      createdAt TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(userId, read);
   `);
   try {
     exec('CREATE INDEX IF NOT EXISTS idx_appointments_resident ON appointments(residentId)');

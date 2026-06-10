@@ -15,17 +15,19 @@ import {
   List,
   Result,
 } from 'antd';
-import { SearchOutlined, EyeOutlined, CheckOutlined, CloseOutlined } from '@ant-design/icons';
-import { Appointment, appointmentApi } from '../../api';
+import { SearchOutlined, EyeOutlined, UserOutlined, TeamOutlined } from '@ant-design/icons';
+import { Appointment, appointmentApi, userApi } from '../../api';
 
 const statusColor: Record<string, string> = {
   pending: 'default',
+  assigned: 'blue',
   accepted: 'processing',
   completed: 'success',
   cancelled: 'error',
 };
 const statusLabel: Record<string, string> = {
-  pending: '待接单',
+  pending: '待分派',
+  assigned: '已分派',
   accepted: '已接单',
   completed: '已完成',
   cancelled: '已取消',
@@ -38,6 +40,12 @@ export default function AdminAppointments() {
   const [keyword, setKeyword] = useState('');
   const [detailVisible, setDetailVisible] = useState(false);
   const [curDetail, setCurDetail] = useState<Appointment | null>(null);
+  const [assignVisible, setAssignVisible] = useState(false);
+  const [assignAppointment, setAssignAppointment] = useState<Appointment | null>(null);
+  const [collectors, setCollectors] = useState<any[]>([]);
+  const [selectedCollector, setSelectedCollector] = useState<number | null>(null);
+  const [assignLoading, setAssignLoading] = useState(false);
+  const [loadingCollectors, setLoadingCollectors] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -76,6 +84,37 @@ export default function AdminAppointments() {
       }
     } catch {
       message.error('获取详情失败');
+    }
+  };
+
+  const openAssign = async (apt: Appointment) => {
+    setAssignAppointment(apt);
+    setSelectedCollector(apt.collectorId || null);
+    setAssignVisible(true);
+    setLoadingCollectors(true);
+    try {
+      const res = await userApi.listCollectors();
+      if (res.success) {
+        setCollectors(res.data || []);
+      }
+    } finally {
+      setLoadingCollectors(false);
+    }
+  };
+
+  const handleAssign = async () => {
+    if (!selectedCollector || !assignAppointment) {
+      message.warning('请选择回收员');
+      return;
+    }
+    setAssignLoading(true);
+    try {
+      await appointmentApi.assign(assignAppointment.id, selectedCollector);
+      message.success('分派成功');
+      setAssignVisible(false);
+      load();
+    } finally {
+      setAssignLoading(false);
     }
   };
 
@@ -125,8 +164,12 @@ export default function AdminAppointments() {
     {
       title: '回收员',
       dataIndex: 'collectorName',
-      width: 100,
-      render: (v: string) => v || <span style={{ color: '#bbb' }}>未接单</span>,
+      width: 120,
+      render: (v: string, r: Appointment) => {
+        if (r.status === 'pending') return <Tag color="default">待分派</Tag>;
+        if (r.status === 'assigned') return <Tag color="blue">{v || '已分派'}</Tag>;
+        return v || <span style={{ color: '#bbb' }}>-</span>;
+      },
     },
     {
       title: '积分',
@@ -149,11 +192,18 @@ export default function AdminAppointments() {
     {
       title: '操作',
       key: 'act',
-      width: 110,
+      width: 180,
       render: (_: any, r: Appointment) => (
-        <Button size="small" icon={<EyeOutlined />} onClick={() => openDetail(r.id)}>
-          详情
-        </Button>
+        <Space>
+          <Button size="small" icon={<EyeOutlined />} onClick={() => openDetail(r.id)}>
+            详情
+          </Button>
+          {(r.status === 'pending' || r.status === 'assigned') && (
+            <Button size="small" icon={<TeamOutlined />} type="primary" onClick={() => openAssign(r)}>
+              分派
+            </Button>
+          )}
+        </Space>
       ),
     },
   ];
@@ -270,9 +320,79 @@ export default function AdminAppointments() {
                 {curDetail.comment && <div style={{ marginTop: 6, fontSize: 13 }}>{curDetail.comment}</div>}
               </div>
             )}
+
+            {(curDetail.status === 'pending' || curDetail.status === 'assigned') && (
+              <div style={{ marginTop: 16, textAlign: 'right' }}>
+                <Button type="primary" icon={<TeamOutlined />} onClick={() => { setDetailVisible(false); openAssign(curDetail); }}>
+                  分派回收员
+                </Button>
+              </div>
+            )}
           </div>
         ) : (
           <Result status="404" title="暂无数据" />
+        )}
+      </Modal>
+
+      <Modal
+        open={assignVisible}
+        onCancel={() => setAssignVisible(false)}
+        title={
+          <Space>
+            <TeamOutlined />
+            <span>分派回收员 - 预约 #{assignAppointment?.id}</span>
+          </Space>
+        }
+        onOk={handleAssign}
+        confirmLoading={assignLoading}
+        okText="确认分派"
+        width={520}
+        destroyOnClose
+      >
+        {assignAppointment && (
+          <div>
+            <Alert
+              type="info"
+              showIcon
+              message={
+                <div>
+                  <div><strong>居民：</strong>{assignAppointment.residentName} ({assignAppointment.residentPhone})</div>
+                  <div><strong>时间：</strong>{assignAppointment.expectedDate} {assignAppointment.expectedTimeSlot}</div>
+                  <div><strong>地址：</strong>📍 {assignAppointment.address}</div>
+                </div>
+              }
+              style={{ marginBottom: 20 }}
+            />
+
+            <div style={{ marginBottom: 8, fontSize: 13, color: '#666' }}>选择回收员：</div>
+            <Select
+              placeholder="请选择回收员"
+              value={selectedCollector}
+              onChange={setSelectedCollector}
+              loading={loadingCollectors}
+              style={{ width: '100%' }}
+              options={collectors.map((c) => ({
+                value: c.id,
+                label: (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>
+                      <UserOutlined style={{ marginRight: 6 }} />
+                      {c.realName}
+                    </span>
+                    <span style={{ color: '#999', fontSize: 12 }}>{c.phone}</span>
+                  </div>
+                ),
+              }))}
+            />
+
+            {assignAppointment.collectorName && (
+              <div style={{ marginTop: 12, padding: 10, background: '#fff7e6', borderRadius: 6, fontSize: 12 }}>
+                <span style={{ color: '#d46b08' }}>当前已分派：</span>
+                {assignAppointment.collectorName} ({assignAppointment.collectorPhone})
+                <span style={{ color: '#999', marginLeft: 8 }}>（重新分派将覆盖原分配）</span>
+              </div>
+            )}
+          </div>
         )}
       </Modal>
     </>
