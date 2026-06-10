@@ -129,3 +129,7 @@ router.delete('/:id', authMiddleware, requireRole('admin'), (req: Request, res: 
 });
 
 export default router;
+({ success: true, message: '品类删除成功' });
+});
+
+export default router;

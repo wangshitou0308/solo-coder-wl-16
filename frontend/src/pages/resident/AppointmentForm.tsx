@@ -122,10 +122,30 @@ export default function AppointmentForm() {
   };
 
   const handleSubmit = async () => {
-    await form.validateFields();
+    const addressValue = form.getFieldValue('address');
+    if (!addressValue || !addressValue.trim()) {
+      message.error('请输入回收地址');
+      setStep(1);
+      return;
+    }
+    if (!date) {
+      message.error('请选择上门日期');
+      setStep(1);
+      return;
+    }
+    if (!selectedSlot) {
+      message.error('请选择上门时段');
+      setStep(1);
+      return;
+    }
+    if (selected.size === 0) {
+      message.error('请选择至少一种回收物');
+      setStep(0);
+      return;
+    }
+
     setSubmitting(true);
     try {
-      const values = await form.validateFields();
       const items = Array.from(selected.entries()).map(([categoryId, estimatedQuantity]) => ({
         categoryId,
         estimatedQuantity,
@@ -133,7 +153,7 @@ export default function AppointmentForm() {
 
       if (isEdit) {
         const res = await appointmentApi.update(parseInt(id || '0'), {
-          address: values.address,
+          address: addressValue,
           expectedDate: date!.format('YYYY-MM-DD'),
           expectedTimeSlot: selectedSlot,
           items,
@@ -144,7 +164,7 @@ export default function AppointmentForm() {
         }
       } else {
         const res = await appointmentApi.create({
-          address: values.address,
+          address: addressValue,
           expectedDate: date!.format('YYYY-MM-DD'),
           expectedTimeSlot: selectedSlot,
           items,

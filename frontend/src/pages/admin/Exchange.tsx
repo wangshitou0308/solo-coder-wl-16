@@ -53,7 +53,7 @@ export default function AdminExchange() {
     if (keyword) {
       const k = keyword.toLowerCase();
       const match =
-        (r.residentName || '').toLowerCase().includes(k) ||
+        ((r as any).userName || '').toLowerCase().includes(k) ||
         (r.productName || '').toLowerCase().includes(k) ||
         String(r.id).includes(keyword);
       if (!match) return false;
@@ -102,8 +102,8 @@ export default function AdminExchange() {
       width: 130,
       render: (_: any, r: ExchangeOrder) => (
         <div>
-          <div style={{ fontWeight: 500 }}>{r.residentName}</div>
-          <div style={{ fontSize: 12, color: '#999' }}>@{r.residentUsername}</div>
+          <div style={{ fontWeight: 500 }}>{(r as any).userName || (r as any).residentName || '-'}</div>
+          <div style={{ fontSize: 12, color: '#999' }}>@{(r as any).username || (r as any).residentUsername || '-'}</div>
         </div>
       ),
     },
@@ -112,7 +112,7 @@ export default function AdminExchange() {
       width: 180,
       render: (_: any, r: ExchangeOrder) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ fontSize: 28 }}>{r.productIcon}</div>
+          <div style={{ fontSize: 28 }}>{r.productImage || (r as any).productIcon || '🎁'}</div>
           <div>
             <div style={{ fontWeight: 500 }}>{r.productName}</div>
             <div style={{ fontSize: 12, color: '#999' }}>x {r.quantity}</div>
@@ -122,7 +122,7 @@ export default function AdminExchange() {
     },
     {
       title: '消耗积分',
-      dataIndex: 'pointsUsed',
+      dataIndex: 'totalPoints',
       width: 100,
       align: 'right' as const,
       render: (v: number) => (

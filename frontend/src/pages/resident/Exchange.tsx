@@ -78,7 +78,8 @@ export default function ResidentExchange() {
 
   const orderStatusMap: Record<string, { color: string; label: string }> = {
     pending: { color: 'processing', label: '待发货' },
-    delivered: { color: 'success', label: '已发货' },
+    shipped: { color: 'blue', label: '已发货' },
+    delivered: { color: 'success', label: '已送达' },
     cancelled: { color: 'default', label: '已取消' },
   };
 
@@ -248,8 +249,10 @@ export default function ResidentExchange() {
                       <span>
                         消耗积分：<strong style={{ color: '#f5222d' }}>-{o.totalPoints}</strong>
                         <span style={{ color: '#ccc', margin: '0 8px' }}>|</span>
-                        {o.status === 'delivered' && o.deliveredAt ? (
-                          <span style={{ color: '#52c41a' }}>发货时间：{o.deliveredAt}</span>
+                        {o.status === 'shipped' && (o as any).shippedAt ? (
+                          <span style={{ color: '#1890ff' }}>发货时间：{(o as any).shippedAt}</span>
+                        ) : o.status === 'delivered' && o.deliveredAt ? (
+                          <span style={{ color: '#52c41a' }}>送达时间：{o.deliveredAt}</span>
                         ) : (
                           <span style={{ color: '#999' }}>下单时间：{o.createdAt}</span>
                         )}

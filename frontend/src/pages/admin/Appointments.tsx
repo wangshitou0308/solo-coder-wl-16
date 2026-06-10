@@ -14,7 +14,9 @@ import {
   Image,
   List,
   Result,
+  Alert,
 } from 'antd';
+const { Option } = Select;
 import { SearchOutlined, EyeOutlined, UserOutlined, TeamOutlined } from '@ant-design/icons';
 import { Appointment, appointmentApi, userApi } from '../../api';
 
@@ -371,9 +373,10 @@ export default function AdminAppointments() {
               onChange={setSelectedCollector}
               loading={loadingCollectors}
               style={{ width: '100%' }}
-              options={collectors.map((c) => ({
-                value: c.id,
-                label: (
+              optionLabelProp="label"
+            >
+              {collectors.map((c) => (
+                <Option key={c.id} value={c.id} label={c.realName}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span>
                       <UserOutlined style={{ marginRight: 6 }} />
@@ -381,9 +384,9 @@ export default function AdminAppointments() {
                     </span>
                     <span style={{ color: '#999', fontSize: 12 }}>{c.phone}</span>
                   </div>
-                ),
-              }))}
-            />
+                </Option>
+              ))}
+            </Select>
 
             {assignAppointment.collectorName && (
               <div style={{ marginTop: 12, padding: 10, background: '#fff7e6', borderRadius: 6, fontSize: 12 }}>
